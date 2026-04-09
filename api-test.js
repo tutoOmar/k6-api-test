@@ -15,6 +15,11 @@ const users = new SharedArray('users', function () {
 export const options = {
   vus: 5,
   duration: '10s',
+  thresholds: {
+    http_req_duration: ['p(95)<1500', 'p(99)<1500'],
+    http_req_failed: ['rate<0.03'],
+    login_errors: ['rate<0.03'],
+  },
 };
 
 export default function () {
