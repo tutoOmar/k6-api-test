@@ -1,8 +1,10 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 import papaparse from 'https://jslib.k6.io/papaparse/5.1.1/index.js';
 import { SharedArray } from 'k6/data';
+import htmlReport from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 const loginErrors = new Rate('login_errors');
 const loginResponseTime = new Trend('login_response_time', true);
@@ -13,8 +15,20 @@ const users = new SharedArray('users', function () {
 });
 
 export const options = {
-  vus: 5,
-  duration: '10s',
+  scenarios: {
+    loginLoadTest: {
+      executor: 'ramping-arrival-rate',
+      startRate: 1,
+      timeUnit: '1s',
+      preAllocatedVUs: 50,
+      maxVUs: 150,
+      stages: [
+        { target: 20, duration: '30s' },
+        { target: 20, duration: '90s' },
+        { target: 0,  duration: '10s' },
+      ],
+    },
+  },
   thresholds: {
     http_req_duration: ['p(95)<1500', 'p(99)<1500'],
     http_req_failed: ['rate<0.03'],
@@ -58,6 +72,12 @@ export default function () {
   if (!loginOk) {
     console.error(`Fallo Login: Status ${loginRes.status} - Body: ${loginRes.body} - User: ${user.user}`);
   }
+}
 
-  sleep(1);
+export function handleSummary(data) {
+  return {
+    'reports/summary.html': htmlReport(data),
+    'reports/summary.json': JSON.stringify(data, null, 2),
+    stdout: textSummary(data, { indent: ' ', enableColors: true }),
+  };
 }
